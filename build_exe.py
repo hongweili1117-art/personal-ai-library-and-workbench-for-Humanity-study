@@ -107,6 +107,15 @@ def main():
     print(f"  个人 AI 智库 · 一键打包（当前系统：{plat_label}）")
     print("=" * 60)
 
+    # 打包前先跑冒烟测试，有失败项就拒绝打包，避免打出有问题的版本
+    print("\n[..] 打包前冒烟测试……")
+    smoke = subprocess.run([sys.executable, "smoke_test.py"])
+    if smoke.returncode != 0:
+        print("\n[×] 冒烟测试未全部通过，打包已中止。")
+        print("    请按照上方提示修复问题后重新打包。")
+        sys.exit(1)
+    print("[√] 冒烟测试全部通过，开始打包。\n")
+
     if not os.path.isfile("app.spec"):
         print("[×] 找不到 app.spec，请确认在程序文件夹内运行本脚本。")
         sys.exit(1)
