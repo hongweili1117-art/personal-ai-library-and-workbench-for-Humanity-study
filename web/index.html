@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>阅读工作台</title>
+<!-- 安全/隐私加固：移除 Google Fonts 外链，避免每次打开都向 Google 服务器发起请求
+     （会暴露你的 IP 和使用情况），同时让程序可真正离线运行。字体自动回退到系统
+     字体：Inter→system-ui/Segoe UI，Spectral→Georgia（已在下方 CSS 中声明）。 -->
+<script src="__PDFJS__"></script>
+<script>window.__PDF_WORKER__="__WORKER__";</script>
+<link rel="stylesheet" href="/web/style.css">
+</head>
+<body>
+<div id="topbar">
+  <div class="tb-left">
+    <button id="menu-btn" class="ghost" title="书架 / 设置（Ctrl+B）">☰</button>
+    <span id="doc-title" class="doc-title">未打开文档</span>
+  </div>
+  <div class="tb-center">
+    <button id="prev" class="ghost" title="上一页（← 键）">◀</button>
+    <span id="pageinfo" class="pageinfo">– / –</span>
+    <button id="next" class="ghost" title="下一页（→ 键）">▶</button>
+    <input id="jump" class="jump" type="number" min="1" title="跳到第几页">
+    <span class="sep"></span>
+    <button id="zout" class="ghost" title="缩小（Ctrl −）">A−</button>
+    <button id="zin" class="ghost" title="放大（Ctrl +）">A+</button>
+    <button id="fit-btn" class="ghost" title="适配页面：自动让整页完整显示且字不过小（Ctrl 0 / F 键切换）">⤢ 适配</button>
+    <span class="seg" id="seg-scroll" title="滚动方式：连续滚动 / 固定翻页">
+      <button class="ghost" data-v="continuous">连续</button><button class="ghost" data-v="fixed">固定</button>
+    </span>
+    <span class="seg" id="seg-layout" title="版式：单页 / 双页">
+      <button class="ghost" data-v="single">单页</button><button class="ghost" data-v="double">双页</button>
+    </span>
+    <div class="tb-menu" id="menu-tools">
+      <button class="ghost tb-trigger" id="tools-trigger" title="标注工具">🖉 工具 ▾</button>
+      <div class="tb-pop" id="tools-pop">
+        <button id="hl-tool" class="ghost" title="打开/关闭荧光笔工具（H 键）">🟨 荧光笔</button>
+        <button id="eraser-tool" class="ghost" title="橡皮擦：点击页面上的荧光标注即可删除（E 键）">🧽 橡皮擦</button>
+        <div class="tb-pop-row">颜色
+          <select id="hl-color" class="jump" style="width:64px" title="荧光笔颜色"><option value="yellow">黄</option><option value="green">绿</option><option value="red">红</option><option value="blue">蓝</option></select>
+        </div>
+        <button id="open-ocr" class="ghost" title="框选一块区域做 OCR 文字识别">✂️ 框选OCR</button>
+      </div>
+    </div>
+    <div class="tb-menu" id="menu-features">
+      <button class="ghost tb-trigger primary-trigger" id="features-trigger" title="AI 功能（按住 Alt + 对应字母可直接打开）">✨ 功能 ▾</button>
+      <div class="tb-pop tb-pop-grid" id="features-pop">
+        <button id="open-translate" class="ghost">🌐 翻译<kbd>Alt T</kbd></button>
+        <button id="open-explain" class="ghost">💡 AI 解读<kbd>Alt Y</kbd></button>
+        <button id="open-hum" class="ghost">📖 人文社科精读<kbd>Alt R</kbd></button>
+        <button id="open-notebook" class="ghost">📓 笔记本<kbd>Alt N</kbd></button>
+      </div>
+    </div>
+  </div>
+  <div class="tb-right">
+    <button id="lock-btn" class="ghost" title="锁定顶栏：锁定时常驻；解锁后阅读/滚动时自动隐藏，鼠标移到顶部再出现">🔒</button>
+    <button id="hide-btn" class="ghost" title="隐藏顶栏，进入沉浸阅读（Alt H；之后点顶部小条恢复）">⌃ 隐藏</button>
+    <button id="help-btn" class="ghost" title="键盘快捷键一览（? 键）">⌨</button>
+  </div>
+</div>
+<div id="bar-handle" title="点此恢复顶栏（Alt H）">▾ 顶栏</div>
+
+<div id="ui-modal">
+  <div class="um-card">
+    <div class="um-msg" id="um-msg"></div>
+    <input id="um-input" class="um-input" style="display:none">
+    <div class="um-row">
+      <button id="um-cancel">取消</button>
+      <button id="um-ok" class="primary">确定</button>
+    </div>
+  </div>
+</div>
+<div id="progwrap"><div id="progbar"></div></div>
+
+<aside id="shelf">
+  <h3 class="sec-h" data-sec="books"><span class="sec-caret">▾</span> 书架</h3>
+  <div id="shelf-books" class="shelf-sec">
+    <label class="upload">＋ 添加 PDF<input id="file" type="file" accept="application/pdf" hidden></label>
+    <details id="paste-box" style="margin:4px 0 2px">
+      <summary class="upload" style="cursor:pointer;list-style:none">＋ 粘贴观点 / 文本</summary>
+      <div style="margin-top:6px;display:flex;flex-direction:column;gap:5px">
+        <input id="paste-name" placeholder="标题（可留空）" style="font-size:12px;padding:5px 7px">
+        <textarea id="paste-text" placeholder="把任意文字、观点、摘录粘贴到这里——也会进入文献库，可被定位与分析" style="min-height:70px;font-size:12px;padding:5px 7px"></textarea>
+        <label class="chk"><input type="checkbox" id="paste-snippet"> 作为单条片段（不切分页）</label>
+        <button class="mini primary" id="paste-save" style="align-self:flex-start">存入文献库</button>
+      </div>
+    </details>
+    <div class="urlrow"><input id="url-input" placeholder="粘贴网页链接，转成干净 PDF"><button class="mini" id="url-go">抓取</button></div>
+    <div id="book-list" class="book-list"></div>
+  </div>
+  <h3 class="sec-h" data-sec="settings"><span class="sec-caret">▾</span> 设置</h3>
+  <div id="shelf-settings" class="shelf-sec">
+  <label class="fld">AI 引擎
+    <select id="set-engine">
+      <option value="DeepSeek">DeepSeek V4</option>
+      <option value="OpenAI">ChatGPT / OpenAI</option>
+      <option value="Claude">Claude</option>
+      <option value="ZAI">Z.ai GLM</option>
+      <option value="Qwen">通义千问 Qwen</option>
+      <option value="Kimi">Kimi（月之暗面）</option>
+      <option value="CustomOpenAI">自定义 OpenAI 兼容接口</option>
+      <option value="免费">免费 (Google，仅翻译)</option>
+    </select>
+  </label>
+  <div id="dsmodel-wrap"><label class="fld">DeepSeek V4 二级模型
+    <select id="set-dsmodel">
+      <option value="deepseek-v4-flash">V4 Flash（快、便宜）</option>
+      <option value="deepseek-v4-pro">V4 Pro（更强）</option>
+    </select>
+  </label></div>
+  <div id="oaimodel-wrap">
+    <label class="fld">ChatGPT / OpenAI 二级模型
+      <select id="set-oaimodel">
+        <option value="gpt-5.5">GPT-5.5</option>
+        <option value="gpt-5.5-pro">GPT-5.5 Pro</option>
+        <option value="gpt-5.4">GPT-5.4</option>
+        <option value="gpt-5.4-pro">GPT-5.4 Pro</option>
+        <option value="gpt-5.4-mini">GPT-5.4 mini（推荐性价比）</option>
+        <option value="gpt-5.4-nano">GPT-5.4 nano（最低成本）</option>
+      </select>
+    </label>
+    <label class="fld">OpenAI 推理强度
+      <select id="set-oai-effort">
+        <option value="none">none（最快）</option>
+        <option value="low">low</option>
+        <option value="medium">medium（默认）</option>
+        <option value="high">high</option>
+        <option value="xhigh">xhigh（深度）</option>
+      </select>
+    </label>
+  </div>
+  <div id="claudemodel-wrap">
+    <label class="fld">Claude 二级模型
+      <select id="set-claudemodel">
+        <option value="claude-opus-4-8">Claude Opus 4.8（最强）</option>
+        <option value="claude-sonnet-4-6">Claude Sonnet 4.6（平衡）</option>
+        <option value="claude-haiku-4-5">Claude Haiku 4.5（快、省）</option>
+      </select>
+    </label>
+    <label class="fld">Claude effort
+      <select id="set-claude-effort">
+        <option value="low">low</option>
+        <option value="medium">medium</option>
+        <option value="high">high（默认推荐）</option>
+        <option value="xhigh">xhigh</option>
+        <option value="max">max</option>
+      </select>
+    </label>
+  </div>
+  <div id="zaimodel-wrap"><label class="fld">Z.ai GLM 二级模型
+    <select id="set-zaimodel">
+      <option value="glm-5.4">GLM-5.4（如账号支持）</option>
+      <option value="glm-5.3">GLM-5.3（如账号支持）</option>
+      <option value="glm-5.2">GLM-5.2</option>
+      <option value="glm-5.1">GLM-5.1</option>
+      <option value="glm-5-turbo">GLM-5-Turbo</option>
+      <option value="glm-4.7">GLM-4.7</option>
+      <option value="glm-4.6v">GLM-4.6V（看图 / OCR 专项）</option>
+      <option value="glm-4.5-air">GLM-4.5-Air</option>
+    </select>
+  </label></div>
+  <div id="qwenmodel-wrap"><label class="fld">通义千问 二级模型
+    <select id="set-qwenmodel">
+      <option value="qwen3.7-plus">Qwen3.7-Plus（通用旗舰·推荐）</option>
+      <option value="qwen3.5-plus">Qwen3.5-Plus</option>
+      <option value="qwen-max">Qwen-Max（最强通用）</option>
+      <option value="qwen-plus">Qwen-Plus（性价比）</option>
+      <option value="qwen3-vl-plus">Qwen3-VL-Plus（看图 / OCR 专项）</option>
+    </select>
+  </label></div>
+  <div id="kimimodel-wrap"><label class="fld">Kimi 二级模型
+    <select id="set-kimimodel">
+      <option value="kimi-k2.6">kimi-k2.6（默认，含视觉）</option>
+      <option value="kimi-k2.6-turbo">kimi-k2.6-turbo（更快）</option>
+      <option value="moonshot-v1-128k">moonshot-v1-128k（长上下文）</option>
+      <option value="moonshot-v1-32k">moonshot-v1-32k</option>
+    </select>
+  </label></div>
+  <div id="custom-wrap">
+    <label class="fld">自定义 Base URL<input id="set-custom-base" type="text" placeholder="兼容 OpenAI 的接口地址"></label>
+    <label class="fld">自定义模型名<input id="set-custom-model" type="text" placeholder="该接口下的模型名"></label>
+  </div>
+  <div id="key-wrap"><label class="fld">API Key<input id="set-key" type="password" placeholder="粘贴当前引擎的 key"></label></div>
+  <label class="fld">翻译目标语言
+    <select id="set-target"><option>简体中文</option><option>English</option><option>Deutsch</option></select>
+  </label>
+  <div class="fld">术语库（固定译法；翻译 / 解释 / 问答时 AI 会严格遵守）
+    <div class="term-add">
+      <input id="set-term-foreign" type="text" placeholder="外语 / 原文术语">
+      <input id="set-term-zh" type="text" placeholder="中文 / 指定译法">
+      <button class="mini primary" id="set-term-add">确认</button>
+    </div>
+    <div id="set-term-list" class="term-list"></div>
+  </div>
+  <label class="fld">阅读背景颜色
+    <select id="set-bg">
+      <option value="sepia">米色护眼</option>
+      <option value="white">纯白</option>
+      <option value="black">黑色</option>
+      <option value="gray">浅灰</option>
+      <option value="custom">自定义</option>
+    </select>
+    <input id="set-bg-custom" type="color" value="#F4EEE2">
+  </label>
+  <p class="hint">已移除“共享 API Key”功能。每台电脑只使用本机浏览器里保存的 key；如果给别人用，请让对方填写自己的 key，或用 PyInstaller 打包成只包含程序、不包含密钥的版本。</p>
+  </div>
+</aside>
+
+<main id="viewer">
+  <div id="pages"></div>
+  <div id="empty-hint">← 点左上角 ☰ 打开书架，先到「设置」选好引擎并填 key，再上传一个 PDF。<br><br>读的时候用鼠标选中文字，左侧会出现「翻译 / 解释 / 划重点」竖排菜单。键盘 ← → 可翻页；点「✂️ 框选OCR」可框选图片区域识别文字；点「📖 翻页」可切换成「📜 连续」上下滚动阅读。</div>
+</main>
+
+<div id="dock"><div id="dock-resize"></div><div id="dock-bar"><span>工具坞 · 翻译 / AI 解读</span><button id="dock-collapse" title="收起工具坞">»</button></div></div>
+<button id="dock-reopen" title="展开工具坞">«</button>
+
+<div id="sel-pop"><button id="pop-tr">翻译</button><button id="pop-ex">解释</button><button id="pop-hl">荧光笔</button></div>
+
+<div class="window" id="win-translate" style="left:70px;top:96px;width:380px;height:340px;display:none">
+  <div class="win-head"><span>🌐 AI 翻译</span><span class="win-close" data-win="translate">×</span></div>
+  <div class="win-body">
+    <div class="win-row ai-actions"><button class="mini" id="tr-getsel">取选中文本</button><button class="mini primary" id="tr-run">翻译</button><button class="mini stop" id="tr-stop" disabled>停止</button><button class="mini save" id="tr-save">保存</button></div>
+    <textarea id="tr-input" placeholder="在 PDF 里选中文字后点“取选中文本”，或直接粘贴…"></textarea>
+    <div id="tr-out" class="out"></div>
+  </div>
+</div>
+
+<div class="window" id="win-qa" style="left:160px;top:120px;width:450px;height:500px;display:none">
+  <div class="win-head"><span>💡 AI 解读</span><span class="win-close" data-win="qa">×</span></div>
+  <div class="win-body">
+    <div class="nb-section">选中的文字 / 上下文 <button class="mini tiny" id="qa-clear">清空</button></div>
+    <div id="qa-ctx" class="qa-ctx">（选中文字点“解释”，或在笔记本里点“问 AI”，会带到这里）</div>
+    <div class="win-row small" style="flex-wrap:wrap;gap:6px;align-items:center">
+      <button class="mini primary" id="ai-explain">💡 解释这段</button>
+      <button class="mini tiny" id="ai-think" title="默认不思考、更快；开启后让模型先思考再答，更慢但更深">思考：关</button>
+      <span style="font-size:12px;color:var(--muted)">检索</span>
+      <select id="ai-scope" style="font-size:12px;padding:3px 6px"><option value="around">前后页</option><option value="all">全文检索</option><option value="range">自定义页码</option></select>
+      <input id="ai-range" placeholder="如 1-3,5" style="display:none;width:84px;font-size:12px;padding:3px 6px">
+    </div>
+    <div id="qa-log" class="qa-log"></div>
+    <textarea id="qa-input" placeholder="就上面的内容追问，可连续提问…（Ctrl+Enter 发送）" style="min-height:46px"></textarea>
+    <div class="win-row ai-actions"><button class="mini primary" id="qa-send" style="flex:1">发送</button><button class="mini stop" id="qa-stop" disabled>停止</button><button class="mini save" id="qa-save">保存</button></div>
+  </div>
+</div>
+
+<div class="window" id="win-ocr" style="left:200px;top:150px;width:430px;height:430px;display:none">
+  <div class="win-head"><span>✂️ 框选识别（OCR）</span><span class="win-close" data-win="ocr">×</span></div>
+  <div class="win-body">
+    <div class="hint">在页面上框选一块区域，让 AI 看懂它。需会看图的引擎：通义千问 / 智谱GLM / Kimi / OpenAI / Claude。</div>
+    <div class="win-row" style="gap:6px;align-items:center">
+      <span style="font-size:12px;color:var(--muted)">任务</span>
+      <select id="ocr-task" style="flex:1;padding:5px 7px;font-size:12px">
+        <option value="text">提取文字</option>
+        <option value="translate">翻译成中文</option>
+        <option value="explain">解读图表 / 图片</option>
+        <option value="formula">公式转 LaTeX</option>
+      </select>
+      <button class="mini primary" id="ocr-redo" title="用所选任务，对刚才框选的那张图重新识别">重新识别</button>
+    </div>
+    <textarea id="ocr-text" placeholder="识别结果会出现在这里，可手动修改…" style="flex:1"></textarea>
+    <div class="win-row ai-actions"><button class="mini primary" id="ocr-tr">翻译</button><button class="mini" id="ocr-ex">解释</button><button class="mini" id="ocr-hl">划重点</button><button class="mini stop" id="ocr-stop" disabled>停止</button><button class="mini save" id="ocr-save">保存</button></div>
+  </div>
+</div>
+
+
+<div class="window" id="win-notebook" style="right:40px;top:96px;width:440px;height:560px;display:none">
+  <div class="win-head"><span>📓 笔记本</span><span class="win-close" data-win="notebook">×</span></div>
+  <div class="win-body">
+    <div class="win-row">
+      <button class="mini" id="nb-word">导出 Word</button>
+      <button class="mini" id="nb-pdf">导出 PDF</button>
+      <button class="mini" id="nb-annotated-pdf">导出带标注 PDF</button>
+    </div>
+    <div class="win-row small">字体
+      <select id="nb-font"><option value="Spectral">衬线</option><option value="Inter">无衬线</option><option value="Mono">等宽</option></select>
+      大小 <input id="nb-size" type="range" min="12" max="30" value="16">
+    </div>
+    <div class="nb-section">划重点</div>
+    <div id="nb-hls" class="nb-list"></div>
+    <div class="nb-section" style="display:flex;align-items:center;gap:8px">笔记
+      <button class="mini tiny" id="nb-newnote">＋ 新建</button>
+      <button class="mini tiny" id="nb-collapse-all" style="margin-left:auto">全部收起</button>
+    </div>
+    <div id="nb-notes" class="nb-list"></div>
+  </div>
+</div>
+
+
+
+<div class="window" id="win-hum" style="left:200px;top:96px;width:600px;height:660px;display:none">
+  <div class="win-head"><span>📖 人文社科精读</span><span class="win-close" data-win="hum">×</span></div>
+  <div class="win-body">
+    <label class="fld">作用对象（文献库条目；默认当前打开的文献，也可选粘贴的文本/片段）
+      <select id="hum-target" style="padding:6px 8px"></select>
+    </label>
+    <div class="hum-tabs">
+      <button class="hum-tab on" data-tab="read">精读</button>
+      <button class="hum-tab" data-tab="links">笔记关联</button>
+    </div>
+
+    <div class="hum-panel on" data-panel="read">
+      <div class="seg"><b style="color:var(--ink);font-weight:600">范围：</b>
+        <label class="chk"><input type="radio" name="hum-scope" value="all" checked> 整篇</label>
+        <label class="chk"><input type="radio" name="hum-scope" value="page"> 当前页</label>
+        <label class="chk"><input type="radio" name="hum-scope" value="range"> 页码</label>
+        <input id="hum-range" placeholder="如 1-3 或 2,5,7" style="width:120px;padding:4px 7px;font-size:12px">
+      </div>
+      <label class="fld">锁定解读视角（仅“深度阅读”用；可留空）
+        <input id="hum-persp" placeholder="例如：从物化理论 / 国家理论 / 治理术 的视角">
+      </label>
+      <div class="win-row">
+        <button class="mini primary" id="hum-run-framework">客观分析</button>
+        <button class="mini primary" id="hum-run-critique">深度阅读</button>
+        <button class="mini primary" id="hum-run-dual">视野对照</button>
+        <button class="mini" id="hum-stop" disabled>停止</button>
+        <button class="mini" id="hum-save">保存</button>
+      </div>
+      <div id="hum-status" class="hint">选对象与范围，点一种分析：客观分析（只描述不评价）／深度阅读（内在批判·概念史·谱系学的思辨整篇）／视野对照（中文｜外文 两栏＋小结）。</div>
+      <div id="hum-out" class="out"></div>
+    </div>
+
+    <div class="hum-panel" data-panel="links">
+      <div class="hint">把你的笔记与阅读/文献库双向勾连。所有引用都标出处（笔记标题 / 条目名 + 第N页/块）。</div>
+      <div class="win-row">
+        <button class="mini primary" id="lnk-notes">按当前阅读找我的笔记</button>
+        <button class="mini primary" id="lnk-evid">按我的笔记找文献库证据</button>
+        <button class="mini" id="lnk-stop" disabled>停止</button>
+        <button class="mini" id="lnk-save">保存</button>
+      </div>
+      <div id="lnk-status" class="hint">前者基于"作用对象"的当前范围；后者扫描全部笔记 + 文献库。</div>
+      <div id="lnk-out" class="out"></div>
+    </div>
+  </div>
+</div>
+
+
+
+
+<div class="window" id="win-aicollection" style="right:24px;bottom:74px;top:auto;left:auto;width:440px;height:540px;display:none">
+  <div class="win-head"><span>🗂️ AI 内容集合</span><span class="win-close" data-win="aicollection">×</span></div>
+  <div class="win-body">
+    <div class="win-row small">把各 AI 功能生成的内容点「保存」后会收集到这里，按类别分组，可查看与修改。</div>
+    <div id="aic-list" style="overflow:auto;max-height:42%"></div>
+    <div id="aic-viewer" class="aic-viewer" style="display:none">
+      <input id="aic-title" placeholder="标题">
+      <textarea id="aic-content" placeholder="内容（可自行修改）"></textarea>
+      <div class="win-row"><button class="mini primary" id="aic-save-edit">保存修改</button><button class="mini" id="aic-copy">复制</button><button class="mini stop" id="aic-del">删除</button></div>
+    </div>
+  </div>
+</div>
+
+<button id="aic-fab" title="打开 AI 内容集合">🗂️ AI 内容集合 <span class="aic-count" id="aic-fab-count">0</span></button>
+
+<div id="toast"></div>
+
+<div id="kbd-help">
+  <div class="kh-card">
+    <button class="kh-close" id="kh-close" title="关闭（Esc）">×</button>
+    <h3>⌨ 键盘快捷键</h3>
+    <div class="kh-sub">在输入框/文本框里打字时，这些快捷键自动让路，不会误触。</div>
+    <div class="kh-grid">
+      <div class="kh-row"><span>上一页 / 下一页</span><kbd>← →</kbd></div>
+      <div class="kh-row"><span>上一页 / 下一页</span><kbd>PgUp PgDn</kbd></div>
+      <div class="kh-row"><span>放大 / 缩小</span><kbd>Ctrl + / −</kbd></div>
+      <div class="kh-row"><span>适配页面（开/关）</span><kbd>Ctrl 0 或 F</kbd></div>
+      <div class="kh-row"><span>荧光笔 / 橡皮擦</span><kbd>H / E</kbd></div>
+      <div class="kh-row"><span>书架（开/关）</span><kbd>Ctrl B</kbd></div>
+      <div class="kh-row"><span>隐藏 / 恢复顶栏</span><kbd>Alt H</kbd></div>
+      <div class="kh-row"><span>锁定 / 解锁顶栏</span><kbd>Alt L</kbd></div>
+      <div class="kh-row"><span>翻译</span><kbd>Alt T</kbd></div>
+      <div class="kh-row"><span>AI 解读</span><kbd>Alt Y</kbd></div>
+      <div class="kh-row"><span>人文社科精读</span><kbd>Alt R</kbd></div>
+      <div class="kh-row"><span>笔记本</span><kbd>Alt N</kbd></div>
+      <div class="kh-row"><span>关闭当前窗口 / 浮层</span><kbd>Esc</kbd></div>
+      <div class="kh-row"><span>本快捷键面板</span><kbd>?</kbd></div>
+    </div>
+  </div>
+</div>
+
+<script src="/web/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+# 运行时生成的数据（书库、PDF、笔记、AI 内容、日志）——包含个人数据，不上传
+data/
+
+# Python 虚拟环境（体积大、平台专用）——每台机器自己跑安装脚本生成
+.venv/
+
+# Python 字节码缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 离线 PDF.js 库文件（体积大，用户可选择自行下载）
+lib/
+
+# PyInstaller 打包产物
+dist/
+build/
+*.exe
+
+# 备份文件（开发过程中产生）
+*.bak
+*.humbak
+*.presplit
+*.stage0bak
+*.jbak
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 编辑器配置
+.vscode/
+.idea/
