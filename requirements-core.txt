@@ -1,0 +1,7 @@
+# 核心依赖——缺少其一程序无法启动
+Flask>=3.0
+PyMuPDF>=1.24
+numpy>=1.26
+waitress>=3.0
+openai>=1.30
+anthropic>=0.34

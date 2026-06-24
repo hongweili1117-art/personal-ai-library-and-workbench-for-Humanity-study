@@ -41,9 +41,19 @@ echo [√] 已找到 Python： %PYEXE%
 echo.
 
 REM ---------- 2. 创建虚拟环境 ----------
+REM 如果 .venv 已存在但 python.exe 无法正常运行（换了电脑等情况），重建它
+set "VENV_OK=0"
 if exist ".venv\Scripts\python.exe" (
-  echo [√] 已存在运行环境 .venv，跳过创建。
+  ".venv\Scripts\python.exe" -c "import sys; sys.exit(0)" >nul 2>nul
+  if not errorlevel 1 set "VENV_OK=1"
+)
+if "%VENV_OK%"=="1" (
+  echo [√] 已存在可用的运行环境 .venv，跳过创建。
 ) else (
+  if exist ".venv" (
+    echo [..] 检测到旧的运行环境无法使用（可能来自其他电脑），正在重建……
+    rmdir /s /q ".venv" >nul 2>nul
+  )
   echo [..] 正在创建独立运行环境 .venv ...
   %PYEXE% -m venv .venv
   if errorlevel 1 (
@@ -56,25 +66,42 @@ if exist ".venv\Scripts\python.exe" (
 set "VENV_PY=.venv\Scripts\python.exe"
 echo.
 
-REM ---------- 3. 安装依赖 ----------
+REM ---------- 3. 安装核心依赖（两次机会：官方源 → 清华镜像）----------
 echo [..] 正在升级 pip ...
-"%VENV_PY%" -m pip install --upgrade pip >nul 2>nul
-echo [..] 正在安装所需组件（Flask / PyMuPDF / numpy / openai / anthropic / waitress / pywebview）...
+"%VENV_PY%" -m pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple >nul 2>nul
+echo [..] 正在安装核心组件（Flask / PyMuPDF / numpy / openai / anthropic / waitress）...
 echo      —— 这一步最耗时，请勿关闭窗口。
-"%VENV_PY%" -m pip install -r requirements.txt
+"%VENV_PY%" -m pip install -r requirements-core.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 if errorlevel 1 (
-  echo.
-  echo [×] 组件安装失败，可能是网络问题。
-  echo     可尝试使用国内镜像后重试，例如：
-  echo         "%VENV_PY%" -m pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-  echo.
-  pause
-  exit /b 1
+  echo [!] 清华镜像也失败，尝试官方源……
+  "%VENV_PY%" -m pip install -r requirements-core.txt
+  if errorlevel 1 (
+    echo.
+    echo [×] 核心组件安装失败，程序无法运行。可能是网络问题，请稍后重试。
+    echo.
+    pause
+    exit /b 1
+  )
 )
-echo [√] 所有组件安装完成。
+echo [√] 核心组件安装完成。
 echo.
 
-REM ---------- 4. 创建桌面快捷方式（指向无黑框 VBS 启动器） ----------
+REM ---------- 4. 安装 pywebview（可选，失败不影响程序运行）----------
+echo [..] 正在安装桌面窗口组件 pywebview（可选，装失败会用浏览器方式代替）...
+"%VENV_PY%" -m pip install "pywebview>=5.0" -i https://pypi.tuna.tsinghua.edu.cn/simple >nul 2>nul
+if errorlevel 1 (
+  "%VENV_PY%" -m pip install "pywebview>=5.0" >nul 2>nul
+  if errorlevel 1 (
+    echo [!] pywebview 安装未成功，程序将以浏览器 + 小控制窗方式运行，功能完全正常。
+  ) else (
+    echo [√] pywebview 安装完成（独立程序窗口模式）。
+  )
+) else (
+  echo [√] pywebview 安装完成（独立程序窗口模式）。
+)
+echo.
+
+REM ---------- 5. 创建桌面快捷方式 ----------
 echo [..] 正在创建桌面快捷方式 ...
 set "LAUNCHER=%~dp0启动_Windows_无黑框.vbs"
 powershell -NoProfile -Command ^
@@ -100,6 +127,6 @@ echo ============================================================
 echo.
 timeout /t 2 >nul
 
-REM ---------- 5. 启动（无黑框） ----------
+REM ---------- 6. 启动（无黑框） ----------
 start "" "%~dp0启动_Windows_无黑框.vbs"
 exit /b 0
