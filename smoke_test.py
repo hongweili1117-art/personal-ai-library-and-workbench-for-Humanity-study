@@ -83,22 +83,19 @@ try:
           "no-store" in (r2.headers.get("Cache-Control") or ""),
           "前端 JS 没有禁止缓存")
     js = r2.get_data(as_text=True)
-    check("划词 endOfContent 增强存在", "enhanceTextSelection" in js,
-          "划词选区修复丢失，重新应用 app.js 的改动")
+    check("划词空白span保护存在", "userSelect" in js,
+          "空白 span 防误选代码丢失")
     check("功能菜单关闭修复（pointerdown）存在", "pointerdown" in js,
           "功能菜单关闭修复丢失，重新应用 app.js 的改动")
 
     r3 = c.get("/web/style.css", headers={"Host": "127.0.0.1"})
     css = r3.get_data(as_text=True)
-    # 检查裸的 .tb-pop-grid{ 规则里是否含 display:grid（注意排除 .tb-menu.open .tb-pop-grid 那条）
     import re as _re
     bare_grid = _re.search(r'(?<!\.open )\b\.tb-pop-grid\s*\{([^}]*)\}', css)
     has_bare_display_grid = bool(bare_grid and "display" in bare_grid.group(1) and "grid" in bare_grid.group(1))
     check("CSS 功能菜单可关闭（无裸 display:grid）",
           not has_bare_display_grid,
           "style.css 里 .tb-pop-grid 仍带 display:grid，功能菜单无法关闭")
-    check("CSS endOfContent 存在", ".endOfContent" in css,
-          "划词修复的 CSS 丢失")
 
     r_evil = c.get("/", headers={"Host": "evil.com"})
     check("非法 Host 返回 403（防 DNS 重绑定）",

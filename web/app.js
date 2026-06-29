@@ -397,19 +397,8 @@ async function renderPageEl(num){
   pe.tl.innerHTML='';pe.tl.style.width=vp.width+'px';pe.tl.style.height=vp.height+'px';pe.tl.style.setProperty('--scale-factor',vp.scale);
   try{const tc=await pg.getTextContent();if(myTok===renderTok){await pdfjsLib.renderTextLayer({textContent:tc,container:pe.tl,viewport:vp,textDivs:[]}).promise;
     pe.tl.querySelectorAll('span').forEach(sp=>{if(!(sp.textContent||'').trim()){sp.style.userSelect='none';sp.style.webkitUserSelect='none';}});
-    enhanceTextSelection(pe.tl);}}catch(e){}
+    }}catch(e){}
   renderAnnotations();
-}
-// 复刻 PDF.js TextLayerBuilder 的「endOfContent」选择机制：renderTextLayer 本身不带，
-// 缺了它划词就会不顺、并把页面边上的空白一起选中。补上后选择平滑且止于文字。
-function enhanceTextSelection(tl){
-  if(tl._selEnhanced)return;tl._selEnhanced=true;
-  let end=tl.querySelector('.endOfContent');
-  if(!end){end=document.createElement('div');end.className='endOfContent';tl.appendChild(end);}
-  tl.addEventListener('mousedown',e=>{
-    if(e.target!==tl){const b=tl.getBoundingClientRect();const r=Math.max(0,Math.min(1,(e.clientY-b.top)/(b.height||1)));end.style.top=(r*100).toFixed(2)+'%';}
-    end.classList.add('active');});
-  tl.addEventListener('mouseup',()=>{end.style.top='';end.classList.remove('active');});
 }
 function isContinuous(){return settings.scrollMode==='continuous';}
 function isDouble(){return settings.pageLayout==='double';}

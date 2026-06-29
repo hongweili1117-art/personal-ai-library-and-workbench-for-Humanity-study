@@ -55,10 +55,6 @@ button{font-family:inherit;cursor:pointer}
 .textLayer{position:absolute;left:0;top:0;overflow:hidden;line-height:1;text-align:initial;transform-origin:0 0;opacity:1}
 .textLayer span,.textLayer br{color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%;margin:0;padding:0}
 .textLayer ::selection{background:rgba(154,95,58,.30)}
-/* PDF.js 选择辅助层：吸收文字以外的拖动，使划词顺滑、且不会划到页面边上的空白。
-   直接用 renderTextLayer 不会自带它，这里补上（含下方的 JS 绑定）。 */
-.textLayer .endOfContent{display:block;position:absolute;inset:100% 0 0;z-index:-1;cursor:default;user-select:none;-webkit-user-select:none}
-.textLayer .endOfContent.active{top:0}
 .window{position:fixed;background:var(--panel);border:1px solid var(--line);border-radius:14px;
   box-shadow:0 16px 50px rgba(40,33,20,.22);display:flex;flex-direction:column;overflow:hidden;min-width:260px;min-height:180px;z-index:40}
 .win-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:move;
